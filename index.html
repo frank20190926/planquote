@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en" data-edition="demo">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' file:; style-src 'self' 'unsafe-inline' file:; img-src 'self' data: blob:; font-src 'self' data: blob:; worker-src 'self' blob: file:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="description" content="Measure local plans and prepare a contractor quote in your browser.">
+  <meta name="color-scheme" content="light">
+  <title>PlanQuote — Offline Blueprint Takeoff</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%231D4ED8' d='M0 0h32v32H0z'/%3E%3Cpath fill='none' stroke='%23fff' stroke-width='1.5' d='M6 6h20v20H6zM6 17h9V6m0 11h11m-8 0v9'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+  <script>window.PLANQUOTE_PRO = false;</script>
+  <script src="./vendor/pdf.min.js"></script>
+  <script defer src="./sample-plan.js"></script>
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <div class="application">
+    <header class="toolbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div><h1>PlanQuote</h1><p>Offline Blueprint Takeoff</p></div>
+      </div>
+      <nav id="toolbox" class="toolbox" aria-label="Takeoff tools">
+        <button type="button" data-tool="pan" aria-pressed="true">Pan / Select</button>
+        <button type="button" data-tool="calibrate" aria-pressed="false">Calibrate Scale</button>
+        <button type="button" data-tool="area" aria-pressed="false" aria-label="Area (Polygon)">Area <span>(Polygon)</span></button>
+        <button type="button" data-tool="line" aria-pressed="false" aria-label="Linear (Path)">Linear <span>(Path)</span></button>
+        <button type="button" data-tool="count" aria-pressed="false" aria-label="Count (Pin)">Count <span>(Pin)</span></button>
+      </nav>
+      <div class="document-actions">
+        <label class="button upload-button"><span aria-hidden="true">↑</span> Upload PDF / Image<input id="upload" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" class="sr-only"></label>
+        <button id="load-sample" type="button">Load Sample Plan</button>
+        <label class="sr-only" for="units">Measurement units</label>
+        <select id="units">
+          <option value="imperial">Imperial (ft / sq ft)</option>
+          <option value="metric">Metric (m / m²)</option>
+        </select>
+        <!-- demo:start -->
+        <a id="open-pro" class="button pro-link demo-only" href="#pro-modal">Get Offline Pro ($29)</a>
+        <!-- demo:end -->
+      </div>
+    </header>
+
+    <main class="workbench">
+      <section class="drawing-pane" aria-label="Plan measurement workspace">
+        <header class="sheet-head">
+          <div class="sheet-title">
+            <span class="section-label">Plan workspace</span>
+            <h2 id="file-name">Sample residence</h2>
+          </div>
+          <div id="scale-state" class="scale-state" role="status"></div>
+        </header>
+        <div id="stage" class="drawing-stage">
+          <canvas id="canvas" tabindex="0" aria-label="Drawing canvas for the active plan"></canvas>
+        </div>
+        <div class="canvas-controls">
+          <div class="zoom-controls" aria-label="Canvas zoom">
+            <button id="zoom-out" class="icon-button" type="button" aria-label="Zoom out">−</button>
+            <output id="zoom" aria-label="Zoom">100%</output>
+            <button id="zoom-in" class="icon-button" type="button" aria-label="Zoom in">+</button>
+            <button id="fit" type="button">Fit to View</button>
+          </div>
+          <nav id="pager" class="pager" aria-label="PDF pages" hidden>
+            <button id="page-prev" class="icon-button" type="button" aria-label="Previous page">‹</button>
+            <output id="page-count"></output>
+            <button id="page-next" class="icon-button" type="button" aria-label="Next page">›</button>
+          </nav>
+          <div class="edit-controls" aria-label="Edit measurements">
+            <button id="undo" type="button">Undo</button>
+            <button id="delete-selected" type="button">Delete Selected</button>
+            <button id="clear-all" type="button">Clear All</button>
+          </div>
+        </div>
+        <div id="drawing-status" class="drawing-status" role="status" aria-live="polite"></div>
+      </section>
+
+      <aside class="estimate-pane" aria-label="Takeoff and quote">
+        <header class="estimate-head">
+          <div class="estimate-heading">
+            <h2>Takeoff &amp; quote</h2>
+            <span id="item-count" class="number"></span>
+          </div>
+          <label class="preset-control" for="preset">Trade preset
+            <select id="preset">
+              <option value="0">Flooring &amp; Tile</option>
+              <option value="1">Interior Painting</option>
+              <option value="2">Landscaping &amp; Decking</option>
+              <option value="3">Roofing &amp; Pergola</option>
+              <option value="4">General Remodel</option>
+            </select>
+          </label>
+        </header>
+        <section id="item-list" class="item-list" aria-label="Takeoff items"></section>
+        <details class="quote-settings">
+          <summary>Company, client &amp; tax</summary>
+          <div class="settings-fields">
+            <label>Company Name<input id="company" type="text" autocomplete="organization" maxlength="150"></label>
+            <label>Phone / Email<input id="contact" type="text" maxlength="150"></label>
+            <label>Client / Project Name<input id="project" type="text" maxlength="150"></label>
+            <label>Tax Rate %<input id="tax" type="number" min="0" max="100" step="any" value="0" inputmode="decimal"></label>
+            <label class="pro-only logo-control">Company Logo<input id="logo" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg"></label>
+            <div class="pro-only rates-actions">
+              <label class="button">Import Rate Library<input id="import-rates" type="file" accept=".json,application/json" class="sr-only"></label>
+              <button id="export-rates" type="button">Export Rate Library</button>
+            </div>
+          </div>
+        </details>
+        <section class="quote-summary" aria-label="Quote totals">
+          <dl class="summary-lines">
+            <div><dt>Material Subtotal</dt><dd id="material-subtotal">$0.00</dd></div>
+            <div><dt>Labor Subtotal</dt><dd id="labor-subtotal">$0.00</dd></div>
+            <div><dt>Tax</dt><dd id="tax-total">$0.00</dd></div>
+            <div class="total-line"><dt>Grand Total</dt><dd id="grand-total">$0.00</dd></div>
+          </dl>
+          <div class="export-actions">
+            <button id="export-pdf" class="primary" type="button">Export Quote PDF</button>
+            <button id="export-csv" type="button">Export CSV</button>
+          </div>
+        </section>
+      </aside>
+    </main>
+    <noscript>Enable JavaScript in your browser to use PlanQuote.</noscript>
+  </div>
+
+  <dialog id="calibration" aria-labelledby="calibration-title">
+    <form id="calibration-form" method="dialog">
+      <header class="dialog-header">
+        <h2 id="calibration-title">Calibrate Scale</h2>
+        <p id="calibration-hint">Enter the real distance between the two points.</p>
+      </header>
+      <div class="calibration-fields">
+        <label>Known length<input id="calibration-length" type="number" min="0" step="any" inputmode="decimal" required autofocus></label>
+        <label>Unit<select id="calibration-unit">
+          <option value="ft">feet (ft)</option>
+          <option value="in">inches (in)</option>
+          <option value="m">metres (m)</option>
+          <option value="cm">centimetres (cm)</option>
+          <option value="mm">millimetres (mm)</option>
+        </select></label>
+      </div>
+      <div class="dialog-actions">
+        <button id="calibration-cancel" type="button">Cancel</button>
+        <button class="primary" type="submit">Apply Scale</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- demo:start -->
+  <dialog id="pro-modal" aria-labelledby="pro-title">
+    <header class="dialog-header">
+      <h2 id="pro-title">PlanQuote Offline Pro</h2>
+      <p>One purchase. Keep the offline files and open them in your browser.</p>
+    </header>
+    <table class="edition-table">
+      <thead><tr><th scope="col">Feature</th><th scope="col">Demo</th><th scope="col">Pro</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Local takeoff and CSV</th><td>Included</td><td>Included</td></tr>
+        <tr><th scope="row">Quote PDF footer</th><td>Demo credit</td><td>Clean</td></tr>
+        <tr><th scope="row">Company logo and rate library</th><td>—</td><td>Included</td></tr>
+        <tr><th scope="row">Price</th><td>Free</td><td class="number">$29 once</td></tr>
+      </tbody>
+    </table>
+    <div class="dialog-actions">
+      <button id="close-pro" type="button">Close</button>
+      <a class="button primary" href="https://suiyiverse0.gumroad.com/" target="_blank" rel="noopener noreferrer">View on Gumroad</a>
+    </div>
+  </dialog>
+  <!-- demo:end -->
+  <section id="print-quote" aria-label="Customer quote"></section>
+</body>
+</html>
